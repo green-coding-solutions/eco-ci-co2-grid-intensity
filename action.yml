@@ -1,0 +1,39 @@
+name: 'Eco CI CO2 Grid Intensity'
+description: 'Get the current grid intensity from the great CO2 Signal API'
+
+inputs:
+  maxmind-account-id:
+    description: 'maxmind-account-id'
+    required: true
+  maxmind-license-key:
+    description: 'maxmind-license-key'
+    required: true
+  co2signal-auth-token:
+    description: 'co2signal-auth-token'
+    required: true
+
+outputs:
+  grid_intensity:
+    description: 
+    value: ${{ steps.get_grid_intensity.outputs.grid_intensity }}
+
+runs:
+  using: 'composite'
+  steps:
+    - id: get_grid_intensity
+      name: check last workflow run and last commit
+      shell: bash
+      run: |
+        my_ip=$(curl icanhazip.com)
+        echo $my_ip
+        maxmind_location_data=$(curl --silent -u '${{ inputs.maxmind-account-id }}:${{ inputs.maxmind-license-key }}'  "https://geolite.info/geoip/v2.1/city/$my_ip")
+        echo $maxmind_location_data
+        latitude=$(echo $maxmind_location_data | jq ".location.latitude")
+        longitude=$(echo $maxmind_location_data | jq ".location.longitude")
+        echo $latitude
+        echo $longitude
+        co2signal_data=$(curl --silent "https://api.co2signal.com/v1/latest?lon=$longitude&lat=$latitude" -H 'auth-token: ${{ inputs.co2signal-auth-token }}')
+        echo $co2signal_data
+        grid_intensity=$(echo $co2signal_data | jq .data.carbonIntensity)
+        echo $grid_intensity
+        echo "grid-intensity=$grid_intensity" >> $GITHUB_OUTPUT
